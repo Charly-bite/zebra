@@ -5,7 +5,155 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zebra Label Designer</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
+        /* Add some styles for toast notifications and tabs */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            background: rgba(30, 41, 59, 0.95);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            border-left: 4px solid var(--accent);
+            animation: slideIn 0.3s ease-out;
+            min-width: 250px;
+        }
+        .toast.error { border-left-color: #ef4444; }
+        .toast.success { border-left-color: #10b981; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 4px;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .tab.active {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        #view-designer, #view-assets { display: none; }
+        #view-designer.active, #view-assets.active { display: flex; width: 100%; height: 100%; }
+
+        /* Asset Table Styles */
+        .assets-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .table-wrapper {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            color: var(--text-main);
+        }
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        th {
+            background: rgba(255,255,255,0.05);
+            font-weight: 600;
+            color: var(--accent);
+        }
+        tr:hover {
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 12px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .modal h2 { margin-bottom: 20px; color: var(--accent); }
+        .modal pre {
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            color: #a7f3d0;
+            font-family: monospace;
+        }
+        .close-btn {
+            float: right;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: var(--text-muted);
+        }
+        .close-btn:hover { color: white; }
+
+        .align-tools {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .template-tools {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
         :root {
             --bg-color: #0f172a;
             --panel-bg: rgba(30, 41, 59, 0.7);
@@ -284,37 +432,75 @@
         }
     </style>
 </head>
+
 <body>
+    <div class="toast-container" id="toastContainer"></div>
 
     <div class="sidebar">
-        <div>
-            <h1>Zebra Designer</h1>
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;">Canvas Settings</p>
-            <div class="row" style="margin-bottom: 25px;">
-                <div>
-                    <label style="font-size:0.75rem; color:var(--text-muted);">Width (dots)</label>
-                    <input type="number" id="canvasW" value="800" style="padding: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; width: 100%;" onchange="updateCanvasSize()">
-                </div>
-                <div>
-                    <label style="font-size:0.75rem; color:var(--text-muted);">Height (dots)</label>
-                    <input type="number" id="canvasH" value="1200" style="padding: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; width: 100%;" onchange="updateCanvasSize()">
-                </div>
-            </div>
-            
+        <h1>Zebra Label Pro</h1>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('designer')">Designer</div>
+            <div class="tab" onclick="switchTab('assets')">Excel Assets</div>
+        </div>
+
+        <div id="sidebar-designer" style="display: flex; flex-direction: column; gap: 20px; flex: 1;">
             <div class="tools">
                 <button onclick="addElement('text')">📄 Text</button>
-                <button onclick="addElement('barcode')">|||| Barcode</button>
-                <button onclick="addElement('qrcode')">⬛ QR Code</button>
+                <button onclick="addElement('barcode')">|| Barcode</button>
+                <button onclick="addElement('qrcode')">🔳 QR Code</button>
                 <button onclick="addElement('box')">⬜ Box</button>
-                <button onclick="document.getElementById('imgUpload').click()" style="grid-column: span 2;">🖼️ Add Image</button>
-                <input type="file" id="imgUpload" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+                <button onclick="addElement('image')" style="grid-column: span 2;">🖼️ Upload Image</button>
             </div>
+
+            <div class="template-tools">
+                <button onclick="saveTemplate()">💾 Save Template</button>
+                <select id="templateSelect" style="padding: 10px; background: rgba(0,0,0,0.2); color: white; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
+                    <option value="">Select Template...</option>
+                </select>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="loadTemplate()" style="flex: 1;">📂 Load</button>
+                    <button onclick="deleteTemplate()" style="flex: 1; background: rgba(239, 68, 68, 0.2);">🗑️ Delete</button>
+                </div>
+            </div>
+
+            <button class="btn-primary" onclick="printLabel()">🖨️ PRINT DESIGN</button>
+            <button class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); margin-top: 10px;" onclick="previewZPL()">👁️ PREVIEW ZPL</button>
+        </div>
+
+        <div id="sidebar-assets" style="display: none; flex-direction: column; gap: 20px; flex: 1;">
+            <div style="color: var(--text-muted); font-size: 0.9rem;">
+                Select assets from the table on the right, then click below to print them.
+            </div>
+            <button class="btn-primary" onclick="printSelectedAssets()">🖨️ PRINT SELECTED</button>
+            <button onclick="loadEquipment()" style="margin-top: 10px;">🔄 Refresh List</button>
+        </div>
+    </div>
+
+    <!-- Designer View -->
+    <div id="view-designer" class="active" style="flex: 1; display: flex;">
+        <div class="canvas-container">
+            <div class="canvas" id="canvas"></div>
         </div>
 
         <div class="properties" id="propertiesPanel">
-            <h3 style="font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 5px;">Element Properties</h3>
+            <h3>Properties</h3>
             
-            <div id="propText" style="display: none; flex-direction: column; gap: 12px;">
+            <div class="align-tools">
+                <button onclick="alignElement('center-h')" title="Center Horizontally">↔️ Center H</button>
+                <button onclick="alignElement('center-v')" title="Center Vertically">↕️ Center V</button>
+            </div>
+
+            <div class="prop-group">
+                <label>Position X, Y</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="inpX" oninput="updateElement()">
+                    <input type="number" id="inpY" oninput="updateElement()">
+                </div>
+            </div>
+
+            <!-- Keep existing props here -->
+<div id="propText" style="display: none; flex-direction: column; gap: 12px;">
                 <label>Text Content</label>
                 <input type="text" id="inpText" oninput="updateElement()">
                 <label>Font Size</label>
@@ -379,9 +565,293 @@
         </div>
     </div>
 
+
+    </div> <!-- End view-designer -->
+
+    <!-- Assets View -->
+    <div id="view-assets" style="flex: 1; display: none; background: rgba(0,0,0,0.2);">
+        <div class="assets-container">
+            <h2>Excel Assets Database</h2>
+            <div class="table-wrapper">
+                <table id="assetsTable">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAllAssets" onclick="toggleSelectAllAssets()"></th>
+                            <th>Row</th>
+                            <th>ID</th>
+                            <th>Type</th>
+                            <th>Brand</th>
+                            <th>User</th>
+                            <th>Area</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assetsTableBody">
+                        <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ZPL Preview Modal -->
+    <div id="zplModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeZplModal()">&times;</span>
+            <h2>ZPL Preview</h2>
+            <pre id="zplCode"></pre>
+            <button onclick="copyZpl()" style="margin-top: 15px; width: 100%;">📋 Copy to Clipboard</button>
+        </div>
+    </div>
+
     <script>
+
         const canvas = document.getElementById('canvas');
         const workspace = document.getElementById('workspace');
+
+        // --- UI & Utility Functions ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerText = message;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s ease-in forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Replace native alert with toast
+        window.alert = (msg) => showToast(msg, 'error');
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if(tab === 'designer') {
+                document.getElementById('view-designer').style.display = 'flex';
+                document.getElementById('view-assets').style.display = 'none';
+                document.getElementById('sidebar-designer').style.display = 'flex';
+                document.getElementById('sidebar-assets').style.display = 'none';
+            } else {
+                document.getElementById('view-designer').style.display = 'none';
+                document.getElementById('view-assets').style.display = 'flex';
+                document.getElementById('sidebar-designer').style.display = 'none';
+                document.getElementById('sidebar-assets').style.display = 'flex';
+                if(document.getElementById('assetsTableBody').children.length <= 1) {
+                    loadEquipment();
+                }
+            }
+        }
+
+        // --- Alignment Tools ---
+        function alignElement(mode) {
+            if (!selectedElement) return;
+            const el = elements.find(e => e.id === selectedElement);
+
+            if (mode === 'center-h') {
+                // Approximate width based on type
+                let elWidth = 100;
+                if(el.type === 'text') elWidth = el.text.length * (el.fontSize * 0.6);
+                else if(el.type === 'box') elWidth = el.width;
+                else if(el.type === 'barcode') elWidth = Math.max(150, el.data.length * 20);
+                else if(el.type === 'qrcode') elWidth = el.size * 20;
+                else if(el.type === 'image') elWidth = el.width;
+
+                el.x = Math.round((canvasWidth - elWidth) / 2);
+            } else if (mode === 'center-v') {
+                let elHeight = 50;
+                if(el.type === 'text') elHeight = el.fontSize;
+                else if(el.type === 'box') elHeight = el.height;
+                else if(el.type === 'barcode') elHeight = el.height + 20;
+                else if(el.type === 'qrcode') elHeight = el.size * 20;
+                else if(el.type === 'image') elHeight = el.height;
+
+                el.y = Math.round((canvasHeight - elHeight) / 2);
+            }
+
+            document.getElementById('inpX').value = el.x;
+            document.getElementById('inpY').value = el.y;
+            renderCanvas();
+        }
+
+        // --- Template Management ---
+        async function fetchTemplates() {
+            try {
+                const res = await fetch('/api/templates');
+                const data = await res.json();
+                const select = document.getElementById('templateSelect');
+                select.innerHTML = '<option value="">Select Template...</option>';
+                if(data.success) {
+                    data.templates.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t;
+                        opt.innerText = t;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch(e) { console.error("Error fetching templates", e); }
+        }
+
+        async function saveTemplate() {
+            const name = prompt("Enter template name:");
+            if(!name) return;
+
+            try {
+                const res = await fetch('/api/templates', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: name, elements: elements })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    showToast(`Template '${name}' saved!`);
+                    fetchTemplates();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch(e) { showToast("Error saving template", 'error'); }
+        }
+
+        async function loadTemplate() {
+            const name = document.getElementById('templateSelect').value;
+            if(!name) { showToast("Please select a template first", 'error'); return; }
+
+            try {
+                const res = await fetch(`/api/templates/${name}`);
+                const data = await res.json();
+                if(data.success) {
+                    elements = data.elements;
+                    selectedElement = null;
+                    document.getElementById('propertiesPanel').classList.remove('active');
+                    renderCanvas();
+                    showToast(`Template '${name}' loaded!`);
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch(e) { showToast("Error loading template", 'error'); }
+        }
+
+        async function deleteTemplate() {
+            const name = document.getElementById('templateSelect').value;
+            if(!name) { showToast("Please select a template first", 'error'); return; }
+            if(!confirm(`Are you sure you want to delete template '${name}'?`)) return;
+
+            try {
+                const res = await fetch(`/api/templates?name=${name}`, { method: 'DELETE' });
+                const data = await res.json();
+                if(data.success) {
+                    showToast(`Template '${name}' deleted!`);
+                    fetchTemplates();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch(e) { showToast("Error deleting template", 'error'); }
+        }
+
+        // --- ZPL Preview ---
+        async function previewZPL() {
+            if (elements.length === 0) {
+                showToast("Canvas is empty!", "error");
+                return;
+            }
+            try {
+                const res = await fetch('/api/zpl_preview', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ elements: elements, canvasWidth: canvasWidth, canvasHeight: canvasHeight })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    document.getElementById('zplCode').innerText = data.zpl;
+                    document.getElementById('zplModal').classList.add('active');
+                } else {
+                    showToast(data.error, "error");
+                }
+            } catch(e) { showToast("Error generating ZPL", "error"); }
+        }
+
+        function closeZplModal() { document.getElementById('zplModal').classList.remove('active'); }
+
+        function copyZpl() {
+            const text = document.getElementById('zplCode').innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("Copied to clipboard!");
+            });
+        }
+
+        // --- Excel Assets Management ---
+        async function loadEquipment() {
+            const tbody = document.getElementById('assetsTableBody');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading data from Excel...</td></tr>';
+
+            try {
+                const res = await fetch('/api/equipment');
+                const data = await res.json();
+                if(data.success) {
+                    tbody.innerHTML = '';
+                    data.data.forEach(r => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><input type="checkbox" class="asset-checkbox" value="${r.row_num}"></td>
+                            <td>${r.row_num}</td>
+                            <td>${r.id_equipo}</td>
+                            <td>${r.tipo}</td>
+                            <td>${r.marca}</td>
+                            <td>${r.usuario}</td>
+                            <td>${r.area}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" style="color:#ef4444;text-align:center;">Error: ${data.error}</td></tr>`;
+                }
+            } catch(e) {
+                tbody.innerHTML = `<tr><td colspan="7" style="color:#ef4444;text-align:center;">Connection error</td></tr>`;
+            }
+        }
+
+        function toggleSelectAllAssets() {
+            const isChecked = document.getElementById('selectAllAssets').checked;
+            document.querySelectorAll('.asset-checkbox').forEach(cb => cb.checked = isChecked);
+        }
+
+        async function printSelectedAssets() {
+            const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked')).map(cb => parseInt(cb.value));
+            if(selected.length === 0) {
+                showToast("Please select at least one asset to print.", "error");
+                return;
+            }
+
+            const btn = document.querySelector('#sidebar-assets .btn-primary');
+            const ogText = btn.innerText;
+            btn.innerText = `⏳ PRINTING ${selected.length}...`;
+            btn.style.pointerEvents = 'none';
+
+            try {
+                const res = await fetch('/api/print_asset', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ rows: selected })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    showToast(data.message, "success");
+                } else {
+                    showToast(data.error, "error");
+                }
+            } catch(e) {
+                showToast("Connection error", "error");
+            }
+
+            btn.innerText = ogText;
+            btn.style.pointerEvents = 'auto';
+        }
+
+        // Init calls
+        fetchTemplates();
+
         let elements = [];
         let selectedElement = null;
         let isDragging = false;
@@ -660,7 +1130,7 @@
 
         async function printLabel() {
             if (elements.length === 0) {
-                alert("Canvas is empty!");
+                showToast("Canvas is empty!", 'error');
                 return;
             }
 
@@ -688,12 +1158,12 @@
                     btn.innerText = '✅ SUCCESS!';
                     btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
                 } else {
-                    alert('Error: ' + data.error);
+                    showToast('Error: ' + data.error, 'error');
                     btn.innerText = '❌ FAILED';
                     btn.style.background = '#ef4444';
                 }
             } catch (err) {
-                alert('Connection error. Is the server running?');
+                showToast('Connection error. Is the server running?', 'error');
                 btn.innerText = '❌ ERROR';
                 btn.style.background = '#ef4444';
             }
