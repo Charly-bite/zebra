@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-import sys, os
+import os
+import sys
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
