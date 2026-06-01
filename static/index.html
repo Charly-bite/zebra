@@ -3,708 +3,1474 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zebra Label Designer</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>Zebra Label Designer Pro</title>
+    <meta name="description" content="Professional label designer for Zebra ZPL printers with drag-and-drop editing, templates, and vanity barcodes.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --panel-bg: rgba(30, 41, 59, 0.7);
+            --bg-color: #0a0e1a;
+            --panel-bg: rgba(22, 30, 48, 0.92);
+            --panel-border: rgba(255, 255, 255, 0.08);
             --accent: #3b82f6;
             --accent-hover: #2563eb;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --text-main: #f1f5f9;
+            --text-muted: #64748b;
+            --text-dim: #475569;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --purple: #8b5cf6;
+            --pink: #ec4899;
+            --toolbar-h: 48px;
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Inter', sans-serif;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            background-color: var(--bg-color);
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
             color: var(--text-main);
-            display: flex;
             height: 100vh;
             overflow: hidden;
-            background-image: 
-                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(147, 51, 234, 0.15), transparent 25%);
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 320px;
-            background: var(--panel-bg);
-            backdrop-filter: blur(12px);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 25px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            z-index: 10;
-            box-shadow: 5px 0 25px rgba(0,0,0,0.2);
+            background-image:
+                radial-gradient(ellipse at 10% 80%, rgba(59,130,246,0.08), transparent 40%),
+                radial-gradient(ellipse at 90% 20%, rgba(139,92,246,0.08), transparent 40%);
         }
 
-        h1 {
-            font-size: 1.8rem;
-            font-weight: 600;
-            background: linear-gradient(to right, #60a5fa, #c084fc);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 5px;
+        /* Toolbar */
+        .toolbar {
+            height: var(--toolbar-h);
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--panel-border);
+            display: flex; align-items: center;
+            padding: 0 16px; gap: 4px;
+            flex-shrink: 0; backdrop-filter: blur(16px); z-index: 100;
+        }
+        .toolbar-group {
+            display: flex; align-items: center; gap: 2px;
+            padding: 0 8px; border-right: 1px solid var(--panel-border); height: 32px;
+        }
+        .toolbar-group:last-child { border-right: none; }
+        .toolbar-group .label {
+            font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-dim); margin-right: 6px; font-weight: 600;
+        }
+        .tb {
+            background: transparent; border: 1px solid transparent; color: var(--text-muted);
+            width: 32px; height: 32px; border-radius: 6px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; transition: all 0.15s; position: relative;
+        }
+        .tb:hover { background: rgba(255,255,255,0.08); color: var(--text-main); }
+        .tb:active { background: rgba(255,255,255,0.12); }
+        .tb.active { background: var(--accent); color: white; }
+        .tb:disabled { opacity: 0.3; cursor: not-allowed; }
+        .tb[title]:hover::after {
+            content: attr(title); position: absolute; bottom: -28px; left: 50%;
+            transform: translateX(-50%); background: #1e293b; color: var(--text-main);
+            padding: 3px 8px; border-radius: 4px; font-size: 0.65rem; white-space: nowrap;
+            z-index: 999; pointer-events: none; border: 1px solid var(--panel-border);
+        }
+        .zoom-display {
+            font-size: 0.75rem; color: var(--text-muted); min-width: 44px;
+            text-align: center; font-weight: 500; font-variant-numeric: tabular-nums;
         }
 
-        .tools {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+        /* Main Layout */
+        .main-area { flex: 1; display: flex; overflow: hidden; }
+
+        /* Left Sidebar */
+        .sidebar {
+            width: 290px; background: var(--panel-bg); backdrop-filter: blur(16px);
+            border-right: 1px solid var(--panel-border); display: flex;
+            flex-direction: column; flex-shrink: 0; z-index: 10; overflow-y: auto;
+        }
+        .sidebar-section { padding: 16px; border-bottom: 1px solid var(--panel-border); }
+        .sidebar-section:last-child { border-bottom: none; }
+        .section-title {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.8px;
+            color: var(--text-dim); font-weight: 700; margin-bottom: 10px;
+        }
+        .canvas-settings { display: flex; gap: 8px; }
+        .canvas-settings .field { flex: 1; }
+        .canvas-settings .field label {
+            font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase;
+            letter-spacing: 0.5px; font-weight: 600; margin-bottom: 3px; display: block;
+        }
+        .canvas-settings .field input {
+            width: 100%; padding: 6px 8px;
+            background: rgba(255,255,255,0.04); border: 1px solid var(--panel-border);
+            color: var(--text-main); border-radius: 5px; font-size: 0.85rem;
+        }
+        .canvas-settings .field input:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
         }
 
-        button {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-main);
-            padding: 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
+        /* Tool buttons */
+        .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .tool-btn {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--panel-border);
+            color: var(--text-main); padding: 10px 8px; border-radius: 7px;
+            cursor: pointer; font-size: 0.8rem; font-weight: 500;
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+            transition: all 0.15s;
+        }
+        .tool-btn:hover {
+            background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15);
+            transform: translateY(-1px);
+        }
+        .tool-btn.span2 { grid-column: span 2; }
+        .tool-btn.vanity {
+            background: linear-gradient(135deg, rgba(236,72,153,0.25), rgba(139,92,246,0.25));
+            border-color: rgba(236,72,153,0.4);
+        }
+        .tool-btn.vanity:hover {
+            background: linear-gradient(135deg, rgba(236,72,153,0.35), rgba(139,92,246,0.35));
         }
 
-        button:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        /* Templates */
+        .template-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .template-btn {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--panel-border);
+            color: var(--text-main); padding: 12px 8px; border-radius: 7px;
+            cursor: pointer; font-size: 0.72rem; font-weight: 500;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            transition: all 0.15s;
         }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent), #6366f1);
-            border: none;
-            grid-column: span 2;
-            padding: 16px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-top: auto;
-            box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
-            color: white;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .template-btn:hover {
+            background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.3);
         }
-
-        .btn-primary:hover {
-            background: linear-gradient(135deg, var(--accent-hover), #4f46e5);
-            transform: translateY(-2px) scale(1.02);
-            box-shadow: 0 6px 20px 0 rgba(59, 130, 246, 0.5);
-        }
+        .template-btn .icon { font-size: 1.3rem; }
 
         /* Properties Panel */
         .properties {
-            background: rgba(0, 0, 0, 0.25);
-            border-radius: 12px;
-            padding: 20px;
-            display: none;
-            flex-direction: column;
-            gap: 12px;
-            border: 1px solid rgba(255,255,255,0.05);
+            padding: 16px; display: none; flex-direction: column; gap: 10px;
+            border-bottom: 1px solid var(--panel-border); animation: fadeSlideIn 0.2s ease;
         }
-
-        .properties.active {
-            display: flex;
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
+        .properties.active { display: flex; }
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(-6px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        .prop-header { display: flex; align-items: center; justify-content: space-between; }
+        .prop-header h3 { font-size: 0.8rem; font-weight: 600; }
+        .prop-header .type-badge {
+            font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 2px 8px; border-radius: 4px;
+            background: rgba(59,130,246,0.15); color: var(--accent); font-weight: 600;
+        }
+        .prop-row { display: flex; gap: 8px; }
+        .prop-row > div { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+        .prop-label {
+            font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px;
+            font-weight: 600; color: var(--text-dim);
+        }
+        .prop-input {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--panel-border);
+            color: white; padding: 7px 10px; border-radius: 5px; width: 100%;
+            font-size: 0.85rem; font-family: 'Inter', sans-serif;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .prop-input:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow); background: rgba(255,255,255,0.06);
+        }
+        select.prop-input { cursor: pointer; }
+        select.prop-input option { background: #1e293b; color: var(--text-main); }
+        .action-row { display: flex; gap: 6px; margin-top: 4px; }
+        .action-btn {
+            flex: 1; padding: 7px; background: rgba(255,255,255,0.04);
+            border: 1px solid var(--panel-border); color: var(--text-muted);
+            border-radius: 5px; cursor: pointer; font-size: 0.72rem; font-weight: 500;
+            display: flex; align-items: center; justify-content: center; gap: 4px;
+            transition: all 0.15s;
+        }
+        .action-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-main); }
+        .action-btn.danger:hover { background: rgba(239,68,68,0.15); color: var(--danger); border-color: rgba(239,68,68,0.3); }
 
-        .properties label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
-            color: var(--text-muted);
-            margin-bottom: -6px;
+        /* Bottom bar */
+        .sidebar-bottom {
+            margin-top: auto; padding: 12px 16px;
+            border-top: 1px solid var(--panel-border);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .btn-print {
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            border: none; color: white; padding: 14px; border-radius: 8px;
+            cursor: pointer; font-size: 0.95rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px;
+            box-shadow: 0 4px 14px var(--accent-glow); transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-print:hover {
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 6px 20px rgba(59,130,246,0.45);
+        }
+        .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .bottom-btn {
+            padding: 8px; background: rgba(255,255,255,0.04);
+            border: 1px solid var(--panel-border); color: var(--text-muted);
+            border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 500;
+            display: flex; align-items: center; justify-content: center; gap: 4px;
+            transition: all 0.15s;
+        }
+        .bottom-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-main); }
+        .bottom-btn.save { color: var(--success); border-color: rgba(16,185,129,0.3); }
+        .bottom-btn.save:hover { background: rgba(16,185,129,0.12); }
+        .bottom-btn.load { color: var(--warning); border-color: rgba(245,158,11,0.3); }
+        .bottom-btn.load:hover { background: rgba(245,158,11,0.12); }
+        .bottom-btn.clear { color: var(--danger); border-color: rgba(239,68,68,0.3); grid-column: span 2; }
+        .bottom-btn.clear:hover { background: rgba(239,68,68,0.12); }
+
+        /* Rotate Selector */
+        .rotate-selector {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px; margin-bottom: 6px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px; transition: all 0.2s;
+        }
+        .rotate-selector.active {
+            background: rgba(139, 92, 246, 0.12);
+            border-color: rgba(139, 92, 246, 0.4);
+        }
+        .rotate-selector .rotate-icon {
+            font-size: 1.1rem; width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(139, 92, 246, 0.15); border-radius: 6px;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+        }
+        .rotate-selector .rotate-select {
+            flex: 1; background: rgba(255,255,255,0.06);
+            border: 1px solid var(--panel-border); color: var(--text-main);
+            padding: 5px 8px; border-radius: 5px; font-size: 0.78rem;
+            font-family: 'Inter', sans-serif; font-weight: 500;
+            cursor: pointer; transition: border-color 0.2s;
+        }
+        .rotate-selector .rotate-select:focus {
+            outline: none; border-color: var(--purple);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+        }
+        .rotate-selector .rotate-select option {
+            background: #1e293b; color: var(--text-main);
         }
 
-        .properties input {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            padding: 10px 12px;
-            border-radius: 6px;
-            width: 100%;
-            font-size: 0.95rem;
-            transition: border-color 0.2s, box-shadow 0.2s;
+        /* Workspace */
+        .workspace { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .canvas-viewport {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            overflow: auto; padding: 40px;
+            background:
+                repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, transparent 1px, transparent 20px),
+                repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, transparent 1px, transparent 20px);
         }
-
-        .properties input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Canvas Area */
-        .workspace {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: auto;
-            padding: 40px;
-            background: repeating-linear-gradient(
-                45deg,
-                rgba(255, 255, 255, 0.02),
-                rgba(255, 255, 255, 0.02) 10px,
-                rgba(255, 255, 255, 0.04) 10px,
-                rgba(255, 255, 255, 0.04) 20px
-            );
-        }
-
         .canvas-wrapper {
-            padding: 40px;
-            border-radius: 16px;
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(5px);
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            padding: 30px; border-radius: 12px;
+            background: rgba(255,255,255,0.03);
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.4);
         }
-
         .canvas-container {
-            width: 1189px;
-            height: 795px;
             background: white;
-            box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.5);
-            position: relative;
-            transform-origin: top left;
-            border-radius: 4px;
-            overflow: hidden;
+            box-shadow: 0 20px 50px -10px rgba(0,0,0,0.6);
+            position: relative; transform-origin: top left;
+            border-radius: 3px; overflow: hidden;
         }
 
-        /* Draggable Elements */
+        /* Right Panel (Layers) */
+        .right-panel {
+            width: 220px; background: var(--panel-bg); backdrop-filter: blur(16px);
+            border-left: 1px solid var(--panel-border); display: flex;
+            flex-direction: column; flex-shrink: 0; overflow-y: auto;
+        }
+        .layers-list { list-style: none; display: flex; flex-direction: column; }
+        .layer-item {
+            padding: 8px 14px; display: flex; align-items: center; gap: 8px;
+            cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04);
+            transition: background 0.1s; font-size: 0.78rem; color: var(--text-muted);
+        }
+        .layer-item:hover { background: rgba(255,255,255,0.04); }
+        .layer-item.active {
+            background: rgba(59,130,246,0.12); color: var(--text-main);
+            border-left: 2px solid var(--accent);
+        }
+        .layer-icon { font-size: 0.9rem; width: 18px; text-align: center; }
+        .layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Canvas Elements */
         .element {
-            position: absolute;
-            cursor: move;
-            user-select: none;
-            color: black;
-            border: 2px solid transparent;
-            box-sizing: border-box;
-            white-space: nowrap;
-            transition: box-shadow 0.2s;
+            position: absolute; cursor: move; user-select: none; color: black;
+            border: 2px solid transparent; box-sizing: border-box; white-space: nowrap;
+            transition: box-shadow 0.15s;
         }
-
-        .element:hover {
-            box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.5);
-        }
-
+        .element:hover { box-shadow: 0 0 0 2px rgba(59,130,246,0.4); }
         .element.selected {
-            border-color: #3b82f6;
-            outline: 2px dashed rgba(59, 130, 246, 0.8);
-            outline-offset: 4px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            z-index: 100;
+            border-color: var(--accent); outline: 2px dashed rgba(59,130,246,0.7);
+            outline-offset: 3px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); z-index: 100;
         }
-
-        .el-text {
-            font-family: 'Arial', sans-serif;
-            font-weight: bold;
-        }
-
+        .el-text { font-family: 'Arial', sans-serif; font-weight: bold; }
         .el-barcode {
-            background: repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px);
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            padding-bottom: 2px;
-            font-family: monospace;
-            font-size: 14px;
-            border: 1px solid #ccc;
-            background-color: white;
+            background: repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px);
+            display: flex; align-items: flex-end; justify-content: center;
+            padding-bottom: 2px; font-family: monospace; font-size: 14px;
+            border: 1px solid #ccc; background-color: white;
         }
-
         .el-qrcode {
             background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M0,0h4v4h-4zM1,1v2h2v-2zM6,0h4v4h-4zM7,1v2h2v-2zM0,6h4v4h-4zM1,7v2h2v-2zM6,6h1v1h-1zM8,6h2v1h-2zM7,7h1v1h-1zM9,7h1v2h-1zM6,8h2v1h-2zM8,9h1v1h-1zM6,9h1v1h-1z" fill="black"/></svg>') no-repeat center;
-            background-size: contain;
-            border: 1px solid #ccc;
-            background-color: white;
+            background-size: contain; border: 1px solid #ccc; background-color: white;
         }
-
-        .el-box {
-            border: 2px solid black;
-            background: transparent;
-        }
-
-        /* Delete btn */
+        .el-box { border: 2px solid black; background: transparent; }
+        .el-line { background: black; }
         .delete-btn {
-            position: absolute;
-            top: -12px;
-            right: -12px;
-            background: #ef4444;
-            color: white;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            cursor: pointer;
-            display: none;
-            border: none;
-            padding: 0;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            transition: transform 0.1s;
+            position: absolute; top: -10px; right: -10px;
+            background: var(--danger); color: white;
+            border-radius: 50%; width: 20px; height: 20px;
+            display: none; align-items: center; justify-content: center;
+            font-size: 13px; cursor: pointer; border: none; padding: 0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: transform 0.1s; line-height: 1;
         }
+        .delete-btn:hover { transform: scale(1.15); }
+        .element.selected .delete-btn { display: flex; }
 
-        .delete-btn:hover {
-            transform: scale(1.1);
-            background: #dc2626;
+        /* Status Bar */
+        .status-bar {
+            height: 24px; background: var(--panel-bg);
+            border-top: 1px solid var(--panel-border);
+            display: flex; align-items: center; padding: 0 16px; gap: 16px;
+            font-size: 0.65rem; color: var(--text-dim); flex-shrink: 0;
         }
+        .status-bar span { display: flex; align-items: center; gap: 4px; }
 
-        .element.selected .delete-btn {
-            display: flex;
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 40px; left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #1e293b; color: var(--text-main);
+            padding: 10px 24px; border-radius: 8px; font-size: 0.85rem; font-weight: 500;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4); border: 1px solid var(--panel-border);
+            z-index: 9999; opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4,0,0.2,1); pointer-events: none;
         }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-        .row {
-            display: flex;
-            gap: 10px;
-        }
-        .row > div {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
+<!-- Top Toolbar -->
+<div class="toolbar">
+    <div class="toolbar-group">
+        <span class="label">File</span>
+        <button class="tb" title="Save Ctrl+S" onclick="saveTemplate()">&#128190;</button>
+        <button class="tb" title="Load" onclick="loadTemplate()">&#128194;</button>
+    </div>
+    <div class="toolbar-group">
+        <span class="label">Edit</span>
+        <button class="tb" id="btnUndo" title="Undo Ctrl+Z" onclick="undo()" disabled>&#8617;</button>
+        <button class="tb" id="btnRedo" title="Redo Ctrl+Y" onclick="redo()" disabled>&#8618;</button>
+    </div>
+    <div class="toolbar-group">
+        <span class="label">Element</span>
+        <button class="tb" title="Duplicate Ctrl+D" onclick="duplicateSelected()">&#10697;</button>
+        <button class="tb" title="Bring to Front" onclick="bringToFront()">&#11014;</button>
+        <button class="tb" title="Send to Back" onclick="sendToBack()">&#11015;</button>
+    </div>
+    <div class="toolbar-group">
+        <span class="label">Align</span>
+        <button class="tb" title="Align Left" onclick="alignElement('left')" style="font-size:12px;">&#11207;</button>
+        <button class="tb" title="Center H" onclick="alignElement('centerH')" style="font-size:12px;">&#11068;</button>
+        <button class="tb" title="Align Right" onclick="alignElement('right')" style="font-size:12px;">&#11208;</button>
+        <button class="tb" title="Align Top" onclick="alignElement('top')" style="font-size:12px;">&#8868;</button>
+        <button class="tb" title="Center V" onclick="alignElement('centerV')" style="font-size:12px;">&#8886;</button>
+        <button class="tb" title="Align Bottom" onclick="alignElement('bottom')" style="font-size:12px;">&#8869;</button>
+    </div>
+    <div class="toolbar-group">
+        <span class="label">View</span>
+        <button class="tb" title="Zoom Out" onclick="zoomOut()">&minus;</button>
+        <span class="zoom-display" id="zoomDisplay">100%</span>
+        <button class="tb" title="Zoom In" onclick="zoomIn()">+</button>
+        <button class="tb" title="Fit to Screen" onclick="zoomFit()">&#8862;</button>
+        <button class="tb" id="btnGrid" title="Toggle Grid" onclick="toggleGrid()">&#9638;</button>
+    </div>
+</div>
+
+<!-- Main Area -->
+<div class="main-area">
+    <!-- Left Sidebar -->
     <div class="sidebar">
-        <div>
-            <h1>Zebra Designer</h1>
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;">Canvas Settings</p>
-            <div class="row" style="margin-bottom: 25px;">
-                <div>
-                    <label style="font-size:0.75rem; color:var(--text-muted);">Width (dots)</label>
-                    <input type="number" id="canvasW" value="800" style="padding: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; width: 100%;" onchange="updateCanvasSize()">
+        <div class="sidebar-section">
+            <div class="section-title">Canvas</div>
+            <div class="canvas-settings">
+                <div class="field">
+                    <label>Width (dots)</label>
+                    <input type="number" id="canvasW" value="800" onchange="updateCanvasSize()">
                 </div>
-                <div>
-                    <label style="font-size:0.75rem; color:var(--text-muted);">Height (dots)</label>
-                    <input type="number" id="canvasH" value="1200" style="padding: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; width: 100%;" onchange="updateCanvasSize()">
+                <div class="field">
+                    <label>Height (dots)</label>
+                    <input type="number" id="canvasH" value="1200" onchange="updateCanvasSize()">
                 </div>
             </div>
-            
-            <div class="tools">
-                <button onclick="addElement('text')">📄 Text</button>
-                <button onclick="addElement('barcode')">|||| Barcode</button>
-                <button onclick="addElement('qrcode')">⬛ QR Code</button>
-                <button onclick="addElement('box')">⬜ Box</button>
-                <button onclick="document.getElementById('imgUpload').click()" style="grid-column: span 2;">🖼️ Add Image</button>
-                <input type="file" id="imgUpload" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+        </div>
+        <div class="sidebar-section">
+            <div class="section-title">Elements</div>
+            <div class="tool-grid">
+                <button class="tool-btn" onclick="addElement('text')">&#128196; Text</button>
+                <button class="tool-btn" onclick="addElement('barcode')">&#9612;&#9612;&#9612; Barcode</button>
+                <button class="tool-btn" onclick="addElement('qrcode')">&#11035; QR Code</button>
+                <button class="tool-btn" onclick="addElement('box')">&#11036; Box</button>
+                <button class="tool-btn" onclick="addElement('line')">&#9473; Line</button>
+                <button class="tool-btn" onclick="document.getElementById('imgUpload').click()">&#128444; Image</button>
+                <button class="tool-btn span2 vanity" onclick="addElement('vanity_barcode')">&#10024; Vanity Barcode</button>
+                <button class="tool-btn span2" onclick="addCompanyLogo()" style="background: rgba(30,58,138,0.3); border-color: rgba(37,99,235,0.4); color: #93c5fd;">&#127970; Company Logo</button>
+            </div>
+            <input type="file" id="imgUpload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+        </div>
+        <div class="sidebar-section">
+            <div class="section-title">Templates</div>
+            <div class="template-grid">
+                <button class="template-btn" onclick="loadPresetTemplate('asset')">
+                    <span class="icon">&#127991;</span> Asset Tag
+                </button>
+                <button class="template-btn" onclick="loadPresetTemplate('shipping')">
+                    <span class="icon">&#128230;</span> Shipping
+                </button>
+                <button class="template-btn" onclick="loadPresetTemplate('product')">
+                    <span class="icon">&#128722;</span> Product
+                </button>
+                <button class="template-btn" onclick="loadPresetTemplate('inventory')">
+                    <span class="icon">&#128203;</span> Inventory
+                </button>
             </div>
         </div>
 
+        <!-- Properties -->
         <div class="properties" id="propertiesPanel">
-            <h3 style="font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 5px;">Element Properties</h3>
-            
-            <div id="propText" style="display: none; flex-direction: column; gap: 12px;">
-                <label>Text Content</label>
-                <input type="text" id="inpText" oninput="updateElement()">
-                <label>Font Size</label>
-                <input type="number" id="inpFontSize" oninput="updateElement()" min="10" max="200">
+            <div class="prop-header">
+                <h3>Properties</h3>
+                <span class="type-badge" id="typeBadge">text</span>
             </div>
-
-            <div id="propBarcode" style="display: none; flex-direction: column; gap: 12px;">
-                <label>Barcode Data</label>
-                <input type="text" id="inpBarcodeData" oninput="updateElement()">
-                <label id="lblBarcodeHeight">Height</label>
-                <input type="number" id="inpBarcodeHeight" oninput="updateElement()" min="20" max="300">
-            </div>
-            
-            <div id="propBox" style="display: none; flex-direction: column; gap: 12px;">
-                <div class="row">
-                    <div>
-                        <label>Width</label>
-                        <input type="number" id="inpBoxW" oninput="updateElement()">
-                    </div>
-                    <div>
-                        <label>Height</label>
-                        <input type="number" id="inpBoxH" oninput="updateElement()">
-                    </div>
-                </div>
-                <label>Thickness</label>
-                <input type="number" id="inpBoxT" oninput="updateElement()">
-            </div>
-
-            <div id="propImage" style="display: none; flex-direction: column; gap: 12px;">
-                <div class="row">
-                    <div>
-                        <label>Width</label>
-                        <input type="number" id="inpImgW" oninput="updateElement()">
-                    </div>
-                    <div>
-                        <label>Height</label>
-                        <input type="number" id="inpImgH" oninput="updateElement()">
-                    </div>
+            <div id="propText" class="hidden">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div><span class="prop-label">Text Content</span>
+                    <input type="text" class="prop-input" id="inpText" oninput="updateElement()"></div>
+                    <div><span class="prop-label">Font Size</span>
+                    <input type="number" class="prop-input" id="inpFontSize" oninput="updateElement()" min="10" max="200"></div>
                 </div>
             </div>
-
-            <div class="row" style="margin-top: 10px;">
-                <div>
-                    <label>X Pos</label>
-                    <input type="number" id="inpX" oninput="updateElement()">
+            <div id="propBarcode" class="hidden">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div><span class="prop-label">Barcode Data</span>
+                    <input type="text" class="prop-input" id="inpBarcodeData" oninput="updateElement()"></div>
+                    <div><span class="prop-label" id="lblBarcodeHeight">Height</span>
+                    <input type="number" class="prop-input" id="inpBarcodeHeight" oninput="updateElement()" min="20" max="300"></div>
                 </div>
-                <div>
-                    <label>Y Pos</label>
-                    <input type="number" id="inpY" oninput="updateElement()">
+            </div>
+            <div id="propBox" class="hidden">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div class="prop-row">
+                        <div><span class="prop-label">Width</span>
+                        <input type="number" class="prop-input" id="inpBoxW" oninput="updateElement()"></div>
+                        <div><span class="prop-label">Height</span>
+                        <input type="number" class="prop-input" id="inpBoxH" oninput="updateElement()"></div>
+                    </div>
+                    <div><span class="prop-label">Thickness</span>
+                    <input type="number" class="prop-input" id="inpBoxT" oninput="updateElement()"></div>
                 </div>
+            </div>
+            <div id="propLine" class="hidden">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div class="prop-row">
+                        <div><span class="prop-label">Length</span>
+                        <input type="number" class="prop-input" id="inpLineLen" oninput="updateElement()"></div>
+                        <div><span class="prop-label">Thickness</span>
+                        <input type="number" class="prop-input" id="inpLineT" oninput="updateElement()"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="propVanity" class="hidden">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div><span class="prop-label">Data</span>
+                    <input type="text" class="prop-input" id="inpVanityData" oninput="updateElement()"></div>
+                    <div><span class="prop-label">Shape</span>
+                    <select class="prop-input" id="inpVanityShape" onchange="updateElement()">
+                        <option value="computer">Computer</option>
+                        <option value="laptop">Laptop</option>
+                        <option value="screen">Screen / Monitor</option>
+                        <option value="heart">Heart</option>
+                        <option value="mug">Coffee Mug</option>
+                        <option value="book">Book</option>
+                    </select></div>
+                    <div class="prop-row">
+                        <div><span class="prop-label">Width</span>
+                        <input type="number" class="prop-input" id="inpVanityW" oninput="updateElement()"></div>
+                        <div><span class="prop-label">Height</span>
+                        <input type="number" class="prop-input" id="inpVanityH" oninput="updateElement()"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="propImage" class="hidden">
+                <div class="prop-row">
+                    <div><span class="prop-label">Width</span>
+                    <input type="number" class="prop-input" id="inpImgW" oninput="updateElement()"></div>
+                    <div><span class="prop-label">Height</span>
+                    <input type="number" class="prop-input" id="inpImgH" oninput="updateElement()"></div>
+                </div>
+            </div>
+            <div class="prop-row" style="margin-top: 4px;">
+                <div><span class="prop-label">X Position</span>
+                <input type="number" class="prop-input" id="inpX" oninput="updateElement()"></div>
+                <div><span class="prop-label">Y Position</span>
+                <input type="number" class="prop-input" id="inpY" oninput="updateElement()"></div>
+            </div>
+            <div class="action-row">
+                <button class="action-btn" onclick="duplicateSelected()">Duplicate</button>
+                <button class="action-btn danger" onclick="deleteSelected()">Delete</button>
             </div>
         </div>
 
-        <button class="btn-primary" onclick="printLabel()">🖨️ Print Label</button>
-    </div>
-
-    <div class="workspace" id="workspace">
-        <div class="canvas-wrapper">
-            <div class="canvas-container" id="canvas">
-                <!-- Elements rendered here -->
+        <div class="sidebar-bottom">
+            <div class="rotate-selector" id="rotateSelector">
+                <span class="rotate-icon" id="rotateIcon">&#128260;</span>
+                <select class="rotate-select" id="rotateAngle" onchange="onRotateChange()">
+                    <option value="0">0° — No rotation</option>
+                    <option value="90">90° — Clockwise</option>
+                    <option value="180">180° — Upside down</option>
+                    <option value="270">270° — Counter-clockwise</option>
+                </select>
+            </div>
+            <button class="btn-print" id="printBtn" onclick="printLabel()">&#128424; PRINT LABEL</button>
+            <div class="bottom-grid">
+                <button class="bottom-btn save" onclick="saveTemplate()">&#128190; Save</button>
+                <button class="bottom-btn load" onclick="loadTemplate()">&#128194; Load</button>
+                <button class="bottom-btn clear" onclick="clearCanvas()">&#128465; Clear Canvas</button>
             </div>
         </div>
     </div>
 
-    <script>
-        const canvas = document.getElementById('canvas');
-        const workspace = document.getElementById('workspace');
-        let elements = [];
-        let selectedElement = null;
-        let isDragging = false;
-        let startX, startY, initialX, initialY;
+    <!-- Canvas Workspace -->
+    <div class="workspace">
+        <div class="canvas-viewport" id="viewport">
+            <div class="canvas-wrapper">
+                <div class="canvas-container" id="canvas"></div>
+            </div>
+        </div>
+    </div>
 
-        // Load canvas size from local storage
-        let canvasWidth = parseInt(localStorage.getItem('zebraCanvasW')) || 800;
-        let canvasHeight = parseInt(localStorage.getItem('zebraCanvasH')) || 1200;
+    <!-- Right Panel: Layers -->
+    <div class="right-panel">
+        <div class="sidebar-section">
+            <div class="section-title">Layers</div>
+        </div>
+        <ul class="layers-list" id="layersList"></ul>
+    </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+    <span id="statusElements">0 elements</span>
+    <span id="statusSelected">No selection</span>
+    <span id="statusCanvas">800 x 1200</span>
+    <span style="margin-left:auto;">Shift+Click Multi-select | Ctrl+A Select All | Ctrl+Z Undo | Ctrl+D Duplicate | Del Delete | Arrows Move</span>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+    // -- State --
+    const canvasEl = document.getElementById('canvas');
+    const viewport = document.getElementById('viewport');
+    let elements = [];
+    let selectedElements = new Set();
+    let primarySelected = null;
+    let isDragging = false;
+    let startX, startY;
+    let dragOffsets = [];
+    let showGrid = false;
+    let currentZoom = 1;
+    let manualZoom = false;
+    let history = [];
+    let historyIndex = -1;
+    const MAX_HISTORY = 50;
+
+    // -- Canvas Size --
+    let canvasWidth = parseInt(localStorage.getItem('zebraCanvasW')) || 800;
+    let canvasHeight = parseInt(localStorage.getItem('zebraCanvasH')) || 1200;
+    document.getElementById('canvasW').value = canvasWidth;
+    document.getElementById('canvasH').value = canvasHeight;
+
+    function updateCanvasSize() {
+        canvasWidth = parseInt(document.getElementById('canvasW').value) || 800;
+        canvasHeight = parseInt(document.getElementById('canvasH').value) || 1200;
+        localStorage.setItem('zebraCanvasW', canvasWidth);
+        localStorage.setItem('zebraCanvasH', canvasHeight);
+        canvasEl.style.width = canvasWidth + 'px';
+        canvasEl.style.height = canvasHeight + 'px';
+        updateStatusBar();
+        if (!manualZoom) zoomFit(); else applyZoom();
+    }
+    updateCanvasSize();
+
+    function applyZoom() {
+        canvasEl.style.transform = 'scale(' + currentZoom + ')';
+        var wrapper = document.querySelector('.canvas-wrapper');
+        wrapper.style.width = (canvasWidth * currentZoom + 60) + 'px';
+        wrapper.style.height = (canvasHeight * currentZoom + 60) + 'px';
+        document.getElementById('zoomDisplay').textContent = Math.round(currentZoom * 100) + '%';
+    }
+    function zoomFit() {
+        manualZoom = false;
+        var availW = viewport.clientWidth - 100;
+        var availH = viewport.clientHeight - 100;
+        currentZoom = Math.min(availW / canvasWidth, availH / canvasHeight, 1);
+        applyZoom();
+    }
+    function zoomIn() { manualZoom = true; currentZoom = Math.min(currentZoom + 0.1, 3); applyZoom(); }
+    function zoomOut() { manualZoom = true; currentZoom = Math.max(currentZoom - 0.1, 0.2); applyZoom(); }
+    function toggleGrid() {
+        showGrid = !showGrid;
+        document.getElementById('btnGrid').classList.toggle('active', showGrid);
+        canvasEl.style.backgroundImage = showGrid ?
+            'repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0px, transparent 1px, transparent 20px),' +
+            'repeating-linear-gradient(90deg, rgba(0,0,0,0.06) 0px, transparent 1px, transparent 20px)' : 'none';
+    }
+    window.addEventListener('resize', function() { if (!manualZoom) zoomFit(); });
+    setTimeout(zoomFit, 100);
+
+    // -- History --
+    function saveState() {
+        history = history.slice(0, historyIndex + 1);
+        history.push(JSON.parse(JSON.stringify(elements)));
+        if (history.length > MAX_HISTORY) history.shift();
+        historyIndex = history.length - 1;
+        updateUndoRedoButtons();
+    }
+    function undo() {
+        if (historyIndex <= 0) return;
+        historyIndex--;
+        elements = JSON.parse(JSON.stringify(history[historyIndex]));
+        clearSelection(); renderCanvas(); updateUndoRedoButtons(); toast('Undo');
+    }
+    function redo() {
+        if (historyIndex >= history.length - 1) return;
+        historyIndex++;
+        elements = JSON.parse(JSON.stringify(history[historyIndex]));
+        clearSelection(); renderCanvas(); updateUndoRedoButtons(); toast('Redo');
+    }
+    function updateUndoRedoButtons() {
+        document.getElementById('btnUndo').disabled = historyIndex <= 0;
+        document.getElementById('btnRedo').disabled = historyIndex >= history.length - 1;
+    }
+    saveState();
+
+    // -- Toast --
+    var toastTimer;
+    function toast(msg) {
+        var t = document.getElementById('toast');
+        t.textContent = msg; t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function() { t.classList.remove('show'); }, 1800);
+    }
+
+    // -- Helper: load image URL to base64 with downscale --
+    function loadImageAsBase64(url, maxW, maxH) {
+        return new Promise(function(resolve, reject) {
+            var img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function() {
+                var w = img.naturalWidth, h = img.naturalHeight;
+                if (maxW && maxH) {
+                    var ratio = Math.min(maxW / w, maxH / h, 1);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+                var c = document.createElement('canvas');
+                c.width = w; c.height = h;
+                var ctx = c.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve({ src: c.toDataURL('image/png'), width: w, height: h });
+            };
+            img.onerror = function() { reject(new Error('Image load failed')); };
+            img.src = url;
+        });
+    }
+
+    // -- Image Upload --
+    function handleImageUpload(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = async function(event) {
+            try {
+                var data = await loadImageAsBase64(event.target.result, 800, 800);
+                var el = {
+                    id: 'el_' + Date.now(), type: 'image',
+                    x: 50, y: 50, src: data.src,
+                    width: Math.min(data.width, canvasWidth - 100),
+                    height: Math.min(data.height, canvasHeight - 100)
+                };
+                elements.push(el); saveState(); renderCanvas(); selectElement(el.id);
+            } catch(err) { toast('Failed to load image'); }
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    }
+
+    // -- Company Logo --
+    async function addCompanyLogo() {
+        try {
+            var data = await loadImageAsBase64('/image/logo_vertical.2.png', 400, 400);
+            var el = {
+                id: 'el_' + Date.now(), type: 'image',
+                x: 40, y: 40, src: data.src,
+                width: Math.min(data.width, 200),
+                height: Math.min(data.height, 280)
+            };
+            elements.push(el); saveState(); renderCanvas();
+            selectElement(el.id); toast('Logo added');
+        } catch(err) {
+            toast('Error loading logo. Is the server running?');
+            console.error('Logo load error:', err);
+        }
+    }
+    async function addCompanyLogoToElements(x, y, w, h) {
+        try {
+            var data = await loadImageAsBase64('/image/logo_vertical.2.png', w, h);
+            elements.push({ id: 'el_logo_' + Date.now(), type: 'image', x: x, y: y, src: data.src, width: w, height: h });
+        } catch(err) { /* logo optional */ }
+    }
+
+    // -- Add Element --
+    async function addElement(type) {
+        var el = { id: 'el_' + Date.now(), type: type, x: 60, y: 60 };
+        if (type === 'text') { el.text = 'Label Text'; el.fontSize = 40; }
+        else if (type === 'barcode') { el.data = '123456789'; el.height = 100; }
+        else if (type === 'qrcode') { el.data = 'https://example.com'; el.size = 5; }
+        else if (type === 'box') { el.width = 250; el.height = 150; el.thickness = 3; }
+        else if (type === 'line') { el.length = 300; el.thickness = 3; }
+        else if (type === 'vanity_barcode') {
+            el.data = '123456789'; el.shape = 'computer';
+            el.width = 300; el.height = 200;
+            await generateVanityBarcodeImage(el);
+        }
+        elements.push(el); saveState(); renderCanvas();
+        selectElement(el.id); toast('Added ' + type.replace('_', ' '));
+    }
+
+    // -- Vanity Barcode --
+    async function generateVanityBarcodeImage(el) {
+        return new Promise(function(resolve) {
+            var bcCanvas = document.createElement('canvas');
+            try {
+                JsBarcode(bcCanvas, el.data || '123456789', {
+                    format: 'CODE128', displayValue: false,
+                    margin: 0, width: 2, height: el.height
+                });
+            } catch(e) {}
+            var c = document.createElement('canvas');
+            c.width = el.width; c.height = el.height;
+            var ctx = c.getContext('2d');
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, el.height * 0.7, el.width, el.height * 0.3);
+            ctx.save();
+            var p = new Path2D(getShapePath(el.shape));
+            ctx.scale(el.width / 100, (el.height * 0.75) / 100);
+            ctx.fill(p);
+            ctx.restore();
+            ctx.globalCompositeOperation = 'source-in';
+            ctx.drawImage(bcCanvas, 0, 0, el.width, el.height);
+            el.src = c.toDataURL('image/png');
+            resolve();
+        });
+    }
+    function getShapePath(shape) {
+        if (shape === 'computer') return 'M 15,5 a 5,5 0 0 0 -5,5 v 45 a 5,5 0 0 0 5,5 h 70 a 5,5 0 0 0 5,-5 v -45 a 5,5 0 0 0 -5,-5 z M 42,60 h 16 v 15 h -16 z M 30,75 h 40 a 3,3 0 0 1 3,3 v 5 h -46 v -5 a 3,3 0 0 1 3,-3 z';
+        if (shape === 'laptop') return 'M 20,8 h 60 a 3,3 0 0 1 3,3 v 42 h -66 v -42 a 3,3 0 0 1 3,-3 z M 22,11 h 56 v 38 h -56 z M 5,56 L 17,53 h 66 L 95,56 v 6 a 4,4 0 0 1 -4,4 h -82 a 4,4 0 0 1 -4,-4 z M 40,56 h 20 a 2,2 0 0 1 2,2 v 1 h -24 v -1 a 2,2 0 0 1 2,-2 z';
+        if (shape === 'screen') return 'M 10,5 h 80 a 4,4 0 0 1 4,4 v 52 a 4,4 0 0 1 -4,4 h -80 a 4,4 0 0 1 -4,-4 v -52 a 4,4 0 0 1 4,-4 z M 14,9 h 72 v 46 h -72 z M 42,65 h 16 v 12 h -16 z M 28,77 h 44 a 3,3 0 0 1 3,3 v 4 h -50 v -4 a 3,3 0 0 1 3,-3 z';
+        if (shape === 'heart') return 'M 50,30 A 20,20 0,0,1 90,30 C 90,60 50,90 50,90 C 50,90 10,60 10,30 A 20,20 0,0,1 50,30 z';
+        if (shape === 'mug') return 'M 15,15 v 65 c 0,15 55,15 55,0 v -65 z M 70,25 h 12 c 12,0 12,40 0,40 h -12 z';
+        if (shape === 'book') return 'M 10,85 L 10,15 Q 30,5 50,15 L 50,85 Q 30,75 10,85 Z M 50,15 Q 70,5 90,15 L 90,85 Q 70,75 50,85 Z';
+        return 'M 0,0 h 100 v 100 h -100 z';
+    }
+
+    // -- Templates --
+    async function loadPresetTemplate(name) {
+        if (elements.length > 0 && !confirm('This will replace your current design. Continue?')) return;
+        elements = []; clearSelection();
+
+        if (name === 'asset') {
+            canvasWidth = 1189; canvasHeight = 795;
+            elements = [
+                { id: 'el_t1', type: 'box', x: 30, y: 20, width: 1129, height: 755, thickness: 4 },
+                { id: 'el_t2', type: 'text', x: 50, y: 40, text: 'ASSET TAG', fontSize: 50 },
+                { id: 'el_t3', type: 'line', x: 50, y: 100, length: 1089, thickness: 3 },
+                { id: 'el_t4', type: 'text', x: 50, y: 120, text: 'Location:', fontSize: 28 },
+                { id: 'el_t5', type: 'text', x: 280, y: 120, text: 'OFFICE-01', fontSize: 32 },
+                { id: 'el_t6', type: 'text', x: 600, y: 120, text: 'ID:', fontSize: 28 },
+                { id: 'el_t7', type: 'text', x: 700, y: 120, text: '001', fontSize: 32 },
+                { id: 'el_t8', type: 'text', x: 50, y: 180, text: 'Type:', fontSize: 28 },
+                { id: 'el_t9', type: 'text', x: 280, y: 180, text: 'LAPTOP', fontSize: 32 },
+                { id: 'el_t10', type: 'text', x: 50, y: 240, text: 'Brand:', fontSize: 28 },
+                { id: 'el_t11', type: 'text', x: 280, y: 240, text: 'DELL', fontSize: 32 },
+                { id: 'el_t12', type: 'text', x: 50, y: 300, text: 'Serial:', fontSize: 28 },
+                { id: 'el_t13', type: 'text', x: 280, y: 300, text: 'SN-123456', fontSize: 32 },
+                { id: 'el_t14', type: 'line', x: 50, y: 360, length: 1089, thickness: 2 },
+                { id: 'el_t15', type: 'text', x: 50, y: 380, text: 'User:', fontSize: 28 },
+                { id: 'el_t16', type: 'text', x: 280, y: 380, text: 'John Doe', fontSize: 32 },
+                { id: 'el_t17', type: 'line', x: 50, y: 440, length: 1089, thickness: 2 },
+                { id: 'el_t18', type: 'barcode', x: 50, y: 470, data: 'OFFICE01-IT-001', height: 120 },
+                { id: 'el_t19', type: 'qrcode', x: 850, y: 450, data: 'OFFICE01-IT-001', size: 7 },
+            ];
+            await addCompanyLogoToElements(950, 30, 200, 280);
+        } else if (name === 'shipping') {
+            canvasWidth = 1189; canvasHeight = 795;
+            elements = [
+                { id: 'el_s1', type: 'text', x: 40, y: 30, text: 'SHIPPING LABEL', fontSize: 44 },
+                { id: 'el_s2', type: 'line', x: 40, y: 85, length: 1109, thickness: 3 },
+                { id: 'el_s3', type: 'text', x: 40, y: 110, text: 'FROM:', fontSize: 24 },
+                { id: 'el_s4', type: 'text', x: 40, y: 145, text: 'Company Name', fontSize: 30 },
+                { id: 'el_s5', type: 'text', x: 40, y: 185, text: '123 Street, City, State 12345', fontSize: 24 },
+                { id: 'el_s6', type: 'line', x: 40, y: 230, length: 1109, thickness: 2 },
+                { id: 'el_s7', type: 'text', x: 40, y: 255, text: 'TO:', fontSize: 28 },
+                { id: 'el_s8', type: 'text', x: 40, y: 300, text: 'Recipient Name', fontSize: 38 },
+                { id: 'el_s9', type: 'text', x: 40, y: 355, text: '456 Avenue, City, State 67890', fontSize: 30 },
+                { id: 'el_s10', type: 'line', x: 40, y: 410, length: 1109, thickness: 2 },
+                { id: 'el_s11', type: 'barcode', x: 40, y: 440, data: 'SHIP-2024-00001', height: 140 },
+                { id: 'el_s12', type: 'qrcode', x: 900, y: 430, data: 'https://track.example.com/SHIP-2024-00001', size: 8 },
+            ];
+        } else if (name === 'product') {
+            canvasWidth = 600; canvasHeight = 400;
+            elements = [
+                { id: 'el_p1', type: 'text', x: 30, y: 20, text: 'Product Name', fontSize: 36 },
+                { id: 'el_p2', type: 'text', x: 30, y: 65, text: 'SKU: PRD-001', fontSize: 22 },
+                { id: 'el_p3', type: 'line', x: 30, y: 100, length: 540, thickness: 2 },
+                { id: 'el_p4', type: 'text', x: 30, y: 115, text: '$19.99', fontSize: 48 },
+                { id: 'el_p5', type: 'barcode', x: 30, y: 200, data: 'PRD001', height: 90 },
+                { id: 'el_p6', type: 'qrcode', x: 430, y: 180, data: 'PRD001', size: 5 },
+            ];
+        } else if (name === 'inventory') {
+            canvasWidth = 800; canvasHeight = 500;
+            elements = [
+                { id: 'el_i1', type: 'box', x: 20, y: 15, width: 760, height: 470, thickness: 3 },
+                { id: 'el_i2', type: 'text', x: 40, y: 30, text: 'INVENTORY', fontSize: 40 },
+                { id: 'el_i3', type: 'line', x: 40, y: 80, length: 720, thickness: 2 },
+                { id: 'el_i4', type: 'text', x: 40, y: 100, text: 'Item:', fontSize: 24 },
+                { id: 'el_i5', type: 'text', x: 200, y: 100, text: 'Widget A', fontSize: 28 },
+                { id: 'el_i6', type: 'text', x: 40, y: 150, text: 'Loc:', fontSize: 24 },
+                { id: 'el_i7', type: 'text', x: 200, y: 150, text: 'Shelf B-03', fontSize: 28 },
+                { id: 'el_i8', type: 'text', x: 40, y: 200, text: 'Qty:', fontSize: 24 },
+                { id: 'el_i9', type: 'text', x: 200, y: 200, text: '150', fontSize: 28 },
+                { id: 'el_i10', type: 'barcode', x: 40, y: 280, data: 'INV-WIDGETA-B03', height: 100 },
+                { id: 'el_i11', type: 'qrcode', x: 580, y: 260, data: 'INV-WIDGETA-B03', size: 6 },
+            ];
+        }
         document.getElementById('canvasW').value = canvasWidth;
         document.getElementById('canvasH').value = canvasHeight;
+        updateCanvasSize(); saveState(); renderCanvas();
+        toast('Template: ' + name);
+    }
 
-        function updateCanvasSize() {
-            canvasWidth = parseInt(document.getElementById('canvasW').value) || 800;
-            canvasHeight = parseInt(document.getElementById('canvasH').value) || 1200;
-            localStorage.setItem('zebraCanvasW', canvasWidth);
-            localStorage.setItem('zebraCanvasH', canvasHeight);
-            canvas.style.width = canvasWidth + 'px';
-            canvas.style.height = canvasHeight + 'px';
-            scaleCanvas();
-        }
-        
-        updateCanvasSize(); // Apply initially
+    // -- Selection helpers --
+    function clearSelection() { selectedElements.clear(); primarySelected = null; hideProperties(); }
+    function isSelected(id) { return selectedElements.has(id); }
 
-        // Auto-scale canvas to fit screen beautifully
-        function scaleCanvas() {
-            const padding = 120;
-            const availableW = workspace.clientWidth - padding;
-            const availableH = workspace.clientHeight - padding;
-            
-            const scaleW = availableW / canvasWidth;
-            const scaleH = availableH / canvasHeight;
-            const scale = Math.min(scaleW, scaleH, 1); 
-            
-            canvas.style.transform = `scale(${scale})`;
-            
-            const wrapper = document.querySelector('.canvas-wrapper');
-            wrapper.style.width = (canvasWidth * scale + 80) + 'px';
-            wrapper.style.height = (canvasHeight * scale + 80) + 'px';
-        }
-        window.addEventListener('resize', scaleCanvas);
-        // initial call needs a small timeout so flexbox can settle
-        setTimeout(scaleCanvas, 100);
+    // -- Render Canvas --
+    function renderCanvas() {
+        canvasEl.innerHTML = '';
+        var sorted = elements.slice().sort(function(a, b) {
+            return (isSelected(a.id) ? 1 : 0) - (isSelected(b.id) ? 1 : 0);
+        });
+        sorted.forEach(function(el) {
+            var div = document.createElement('div');
+            var sel = isSelected(el.id);
+            div.className = 'element el-' + el.type + (sel ? ' selected' : '');
+            div.id = el.id;
+            div.style.left = el.x + 'px';
+            div.style.top = el.y + 'px';
 
-        function handleImageUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    const el = {
-                        id: 'el_' + Date.now(),
-                        type: 'image',
-                        x: 50,
-                        y: 50,
-                        src: event.target.result,
-                        width: img.width,
-                        height: img.height
-                    };
-                    elements.push(el);
-                    renderCanvas();
-                    selectElement(el.id);
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-            e.target.value = ""; // reset input
-        }
-
-        function addElement(type) {
-            const el = {
-                id: 'el_' + Date.now(),
-                type: type,
-                x: 100,
-                y: 100
-            };
-
-            if (type === 'text') {
-                el.text = 'Double click to edit';
-                el.fontSize = 50;
-            } else if (type === 'barcode') {
-                el.data = '123456789';
-                el.height = 100;
-            } else if (type === 'qrcode') {
-                el.data = 'https://example.com';
-                el.size = 5;
-            } else if (type === 'box') {
-                el.width = 300;
-                el.height = 200;
-                el.thickness = 4;
+            if (el.type === 'text') {
+                div.innerText = el.text;
+                div.style.fontSize = el.fontSize + 'px';
+                div.style.lineHeight = '1.1';
+            } else if (el.type === 'barcode') {
+                div.style.height = el.height + 'px';
+                div.style.width = Math.max(150, (el.data || '').length * 18) + 'px';
+                div.innerText = el.data;
+            } else if (el.type === 'qrcode') {
+                var s = el.size * 20;
+                div.style.width = s + 'px'; div.style.height = s + 'px';
+            } else if (el.type === 'box') {
+                div.style.width = el.width + 'px';
+                div.style.height = el.height + 'px';
+                div.style.borderWidth = el.thickness + 'px';
+            } else if (el.type === 'line') {
+                div.style.width = el.length + 'px';
+                div.style.height = el.thickness + 'px';
+            } else if (el.type === 'image' || el.type === 'vanity_barcode') {
+                var img = document.createElement('img');
+                img.src = el.src;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.pointerEvents = 'none';
+                img.style.objectFit = 'contain';
+                if (el.type === 'image') img.style.filter = 'grayscale(100%) contrast(200%)';
+                div.style.width = el.width + 'px';
+                div.style.height = el.height + 'px';
+                div.appendChild(img);
             }
 
-            elements.push(el);
-            renderCanvas();
-            selectElement(el.id);
-        }
+            var del = document.createElement('button');
+            del.className = 'delete-btn'; del.innerHTML = '&times;';
+            del.onclick = function(e) { e.stopPropagation(); deleteElement(el.id); };
+            div.appendChild(del);
+            div.addEventListener('mousedown', function(e) { startDrag(e, el); });
+            canvasEl.appendChild(div);
+        });
+        updateLayersPanel();
+        updateStatusBar();
+    }
 
-        function renderCanvas() {
-            canvas.innerHTML = '';
-            elements.forEach(el => {
-                const div = document.createElement('div');
-                div.className = `element el-${el.type} ${selectedElement === el.id ? 'selected' : ''}`;
-                div.id = el.id;
-                div.style.left = el.x + 'px';
-                div.style.top = el.y + 'px';
-
-                if (el.type === 'text') {
-                    div.innerText = el.text;
-                    div.style.fontSize = el.fontSize + 'px';
-                    div.style.lineHeight = '1';
-                } else if (el.type === 'barcode') {
-                    div.style.height = el.height + 'px';
-                    div.style.width = Math.max(150, el.data.length * 20) + 'px';
-                    div.innerText = el.data;
-                } else if (el.type === 'qrcode') {
-                    const s = el.size * 20; 
-                    div.style.width = s + 'px';
-                    div.style.height = s + 'px';
-                } else if (el.type === 'box') {
-                    div.style.width = el.width + 'px';
-                    div.style.height = el.height + 'px';
-                    div.style.borderWidth = el.thickness + 'px';
-                } else if (el.type === 'image') {
-                    const img = document.createElement('img');
-                    img.src = el.src;
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.style.pointerEvents = 'none'; // prevent drag issues
-                    img.style.filter = 'grayscale(100%) contrast(1000%)'; // B&W preview
-                    div.style.width = el.width + 'px';
-                    div.style.height = el.height + 'px';
-                    div.appendChild(img);
-                }
-
-                // Delete button
-                const delBtn = document.createElement('button');
-                delBtn.className = 'delete-btn';
-                delBtn.innerHTML = '×';
-                delBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    elements = elements.filter(e => e.id !== el.id);
-                    if (selectedElement === el.id) selectedElement = null;
-                    document.getElementById('propertiesPanel').classList.remove('active');
-                    renderCanvas();
-                };
-                div.appendChild(delBtn);
-
-                // Start dragging
-                div.addEventListener('mousedown', (e) => startDrag(e, el));
-                
-                canvas.appendChild(div);
-            });
-        }
-
-        function startDrag(e, el) {
-            if (e.target.className === 'delete-btn') return;
-            e.stopPropagation();
-            selectElement(el.id);
-            isDragging = true;
-            
-            // calculate current scale to make dragging 1:1
-            const scaleStr = canvas.style.transform.match(/scale\(([^)]+)\)/);
-            const scale = scaleStr ? parseFloat(scaleStr[1]) : 1;
-            
-            startX = e.clientX;
-            startY = e.clientY;
-            initialX = el.x;
-            initialY = el.y;
-
-            const onMouseMove = (ev) => {
-                if (!isDragging) return;
-                const dx = (ev.clientX - startX) / scale;
-                const dy = (ev.clientY - startY) / scale;
-                
-                el.x = Math.max(0, Math.round(initialX + dx));
-                el.y = Math.max(0, Math.round(initialY + dy));
-                
-                document.getElementById(el.id).style.left = el.x + 'px';
-                document.getElementById(el.id).style.top = el.y + 'px';
-                
-                document.getElementById('inpX').value = el.x;
-                document.getElementById('inpY').value = el.y;
+    // -- Layers Panel --
+    function updateLayersPanel() {
+        var list = document.getElementById('layersList');
+        list.innerHTML = '';
+        var icons = { text: 'T', barcode: '|||', qrcode: 'QR', box: '[]', line: '--', image: 'IMG', vanity_barcode: 'VB' };
+        elements.slice().reverse().forEach(function(el) {
+            var li = document.createElement('li');
+            li.className = 'layer-item' + (isSelected(el.id) ? ' active' : '');
+            var name = el.type === 'text' ? (el.text || '').substring(0, 16) :
+                       el.type === 'barcode' ? el.data :
+                       el.type === 'vanity_barcode' ? 'Vanity ' + el.shape :
+                       el.type.replace('_', ' ');
+            li.innerHTML = '<span class="layer-icon">' + (icons[el.type] || '-') + '</span><span class="layer-name">' + name + '</span>';
+            li.onclick = function(e) {
+                if (e.shiftKey || e.ctrlKey) toggleSelect(el.id);
+                else selectElement(el.id);
             };
+            list.appendChild(li);
+        });
+    }
 
-            const onMouseUp = () => {
-                isDragging = false;
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
-            };
-
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
+    function updateStatusBar() {
+        document.getElementById('statusElements').textContent = elements.length + ' element' + (elements.length !== 1 ? 's' : '');
+        document.getElementById('statusCanvas').textContent = canvasWidth + ' x ' + canvasHeight;
+        if (selectedElements.size > 1) {
+            document.getElementById('statusSelected').textContent = selectedElements.size + ' selected';
+        } else if (primarySelected) {
+            var el = elements.find(function(e) { return e.id === primarySelected; });
+            document.getElementById('statusSelected').textContent = el ? el.type.replace('_', ' ') + ' @ ' + el.x + ',' + el.y : 'No selection';
+        } else {
+            document.getElementById('statusSelected').textContent = 'No selection';
         }
+    }
 
-        canvas.addEventListener('mousedown', () => {
-            selectedElement = null;
-            document.getElementById('propertiesPanel').classList.remove('active');
-            renderCanvas();
+    // -- Drag (multi-select) --
+    function startDrag(e, el) {
+        if (e.target.classList.contains('delete-btn')) return;
+        e.stopPropagation();
+        if (e.shiftKey || e.ctrlKey) { toggleSelect(el.id); return; }
+        if (!isSelected(el.id)) { selectElement(el.id); }
+        else { primarySelected = el.id; showPropertiesFor(el.id); }
+
+        isDragging = true;
+        var scaleMatch = canvasEl.style.transform.match(/scale\(([^)]+)\)/);
+        var scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
+        startX = e.clientX; startY = e.clientY;
+        dragOffsets = [];
+        selectedElements.forEach(function(id) {
+            var selEl = elements.find(function(e) { return e.id === id; });
+            if (selEl) dragOffsets.push({ id: id, ix: selEl.x, iy: selEl.y });
         });
 
-        function selectElement(id) {
-            selectedElement = id;
-            renderCanvas();
-            
-            const el = elements.find(e => e.id === id);
-            const props = document.getElementById('propertiesPanel');
-            props.classList.add('active');
-            
-            document.getElementById('inpX').value = el.x;
-            document.getElementById('inpY').value = el.y;
+        var onMove = function(ev) {
+            if (!isDragging) return;
+            var dx = (ev.clientX - startX) / scale;
+            var dy = (ev.clientY - startY) / scale;
+            dragOffsets.forEach(function(off) {
+                var selEl = elements.find(function(e) { return e.id === off.id; });
+                if (!selEl) return;
+                selEl.x = Math.max(0, Math.round(off.ix + dx));
+                selEl.y = Math.max(0, Math.round(off.iy + dy));
+                var dom = document.getElementById(off.id);
+                if (dom) { dom.style.left = selEl.x + 'px'; dom.style.top = selEl.y + 'px'; }
+            });
+            if (primarySelected) {
+                var p = elements.find(function(e) { return e.id === primarySelected; });
+                if (p) { document.getElementById('inpX').value = p.x; document.getElementById('inpY').value = p.y; }
+            }
+            updateStatusBar();
+        };
+        var onUp = function() {
+            isDragging = false; saveState();
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
 
-            document.getElementById('propText').style.display = 'none';
-            document.getElementById('propBarcode').style.display = 'none';
-            document.getElementById('propBox').style.display = 'none';
-            document.getElementById('propImage').style.display = 'none';
+    canvasEl.addEventListener('mousedown', function(e) {
+        if (e.target === canvasEl) { clearSelection(); renderCanvas(); }
+    });
+
+    // -- Select / Toggle --
+    function selectElement(id) {
+        selectedElements.clear(); selectedElements.add(id);
+        primarySelected = id; renderCanvas(); showPropertiesFor(id);
+    }
+    function toggleSelect(id) {
+        if (selectedElements.has(id)) {
+            selectedElements.delete(id);
+            if (primarySelected === id) {
+                primarySelected = selectedElements.size > 0 ? Array.from(selectedElements).pop() : null;
+            }
+        } else { selectedElements.add(id); primarySelected = id; }
+        renderCanvas();
+        if (primarySelected) showPropertiesFor(primarySelected); else hideProperties();
+    }
+    function hideProperties() { document.getElementById('propertiesPanel').classList.remove('active'); }
+
+    function showPropertiesFor(id) {
+        var el = elements.find(function(e) { return e.id === id; });
+        if (!el) return;
+        var props = document.getElementById('propertiesPanel');
+        props.classList.add('active');
+        document.getElementById('typeBadge').textContent =
+            selectedElements.size > 1 ? selectedElements.size + ' selected' : el.type.replace('_', ' ');
+        document.getElementById('inpX').value = el.x;
+        document.getElementById('inpY').value = el.y;
+
+        ['propText','propBarcode','propBox','propLine','propImage','propVanity'].forEach(function(pid) {
+            document.getElementById(pid).classList.add('hidden');
+        });
+
+        if (el.type === 'text') {
+            document.getElementById('propText').classList.remove('hidden');
+            document.getElementById('inpText').value = el.text;
+            document.getElementById('inpFontSize').value = el.fontSize;
+        } else if (el.type === 'barcode' || el.type === 'qrcode') {
+            document.getElementById('propBarcode').classList.remove('hidden');
+            document.getElementById('inpBarcodeData').value = el.data;
+            if (el.type === 'barcode') {
+                document.getElementById('lblBarcodeHeight').innerText = 'Height';
+                document.getElementById('inpBarcodeHeight').value = el.height;
+            } else {
+                document.getElementById('lblBarcodeHeight').innerText = 'Size (1-10)';
+                document.getElementById('inpBarcodeHeight').value = el.size;
+            }
+        } else if (el.type === 'box') {
+            document.getElementById('propBox').classList.remove('hidden');
+            document.getElementById('inpBoxW').value = el.width;
+            document.getElementById('inpBoxH').value = el.height;
+            document.getElementById('inpBoxT').value = el.thickness;
+        } else if (el.type === 'line') {
+            document.getElementById('propLine').classList.remove('hidden');
+            document.getElementById('inpLineLen').value = el.length;
+            document.getElementById('inpLineT').value = el.thickness;
+        } else if (el.type === 'image') {
+            document.getElementById('propImage').classList.remove('hidden');
+            document.getElementById('inpImgW').value = el.width;
+            document.getElementById('inpImgH').value = el.height;
+        } else if (el.type === 'vanity_barcode') {
+            document.getElementById('propVanity').classList.remove('hidden');
+            document.getElementById('inpVanityData').value = el.data;
+            document.getElementById('inpVanityShape').value = el.shape;
+            document.getElementById('inpVanityW').value = el.width;
+            document.getElementById('inpVanityH').value = el.height;
+        }
+    }
+
+    // -- Update Element --
+    async function updateElement() {
+        if (!primarySelected) return;
+        var el = elements.find(function(e) { return e.id === primarySelected; });
+        if (!el) return;
+        el.x = parseInt(document.getElementById('inpX').value) || 0;
+        el.y = parseInt(document.getElementById('inpY').value) || 0;
+        if (el.type === 'text') {
+            el.text = document.getElementById('inpText').value;
+            el.fontSize = parseInt(document.getElementById('inpFontSize').value) || 20;
+        } else if (el.type === 'barcode' || el.type === 'qrcode') {
+            el.data = document.getElementById('inpBarcodeData').value;
+            if (el.type === 'barcode') el.height = parseInt(document.getElementById('inpBarcodeHeight').value) || 50;
+            else el.size = parseInt(document.getElementById('inpBarcodeHeight').value) || 5;
+        } else if (el.type === 'box') {
+            el.width = parseInt(document.getElementById('inpBoxW').value) || 100;
+            el.height = parseInt(document.getElementById('inpBoxH').value) || 100;
+            el.thickness = parseInt(document.getElementById('inpBoxT').value) || 2;
+        } else if (el.type === 'line') {
+            el.length = parseInt(document.getElementById('inpLineLen').value) || 100;
+            el.thickness = parseInt(document.getElementById('inpLineT').value) || 2;
+        } else if (el.type === 'image') {
+            el.width = parseInt(document.getElementById('inpImgW').value) || 100;
+            el.height = parseInt(document.getElementById('inpImgH').value) || 100;
+        } else if (el.type === 'vanity_barcode') {
+            el.data = document.getElementById('inpVanityData').value;
+            el.shape = document.getElementById('inpVanityShape').value;
+            el.width = parseInt(document.getElementById('inpVanityW').value) || 100;
+            el.height = parseInt(document.getElementById('inpVanityH').value) || 100;
+            await generateVanityBarcodeImage(el);
+        }
+        renderCanvas();
+    }
+
+    // -- Element Actions --
+    function deleteElement(id) {
+        elements = elements.filter(function(e) { return e.id !== id; });
+        selectedElements.delete(id);
+        if (primarySelected === id) primarySelected = selectedElements.size > 0 ? Array.from(selectedElements)[0] : null;
+        if (selectedElements.size === 0) hideProperties();
+        saveState(); renderCanvas(); toast('Deleted');
+    }
+    function deleteSelected() {
+        if (selectedElements.size === 0) return;
+        var ids = new Set(selectedElements);
+        elements = elements.filter(function(e) { return !ids.has(e.id); });
+        clearSelection(); saveState(); renderCanvas();
+        toast('Deleted ' + ids.size + ' element' + (ids.size > 1 ? 's' : ''));
+    }
+    function duplicateSelected() {
+        if (selectedElements.size === 0) return;
+        var newIds = [];
+        selectedElements.forEach(function(id) {
+            var src = elements.find(function(e) { return e.id === id; });
+            if (!src) return;
+            var clone = JSON.parse(JSON.stringify(src));
+            clone.id = 'el_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+            clone.x += 20; clone.y += 20;
+            elements.push(clone); newIds.push(clone.id);
+        });
+        selectedElements.clear();
+        newIds.forEach(function(id) { selectedElements.add(id); });
+        primarySelected = newIds[newIds.length - 1];
+        saveState(); renderCanvas();
+        if (primarySelected) showPropertiesFor(primarySelected);
+        toast('Duplicated ' + newIds.length);
+    }
+    function bringToFront() {
+        if (selectedElements.size === 0) return;
+        var sel = elements.filter(function(e) { return isSelected(e.id); });
+        elements = elements.filter(function(e) { return !isSelected(e.id); });
+        elements = elements.concat(sel);
+        saveState(); renderCanvas(); toast('Brought to front');
+    }
+    function sendToBack() {
+        if (selectedElements.size === 0) return;
+        var sel = elements.filter(function(e) { return isSelected(e.id); });
+        elements = elements.filter(function(e) { return !isSelected(e.id); });
+        elements = sel.concat(elements);
+        saveState(); renderCanvas(); toast('Sent to back');
+    }
+    function alignElement(dir) {
+        if (!primarySelected) return;
+        var el = elements.find(function(e) { return e.id === primarySelected; });
+        if (!el) return;
+        var w = el.width || el.length || (el.type === 'text' ? el.fontSize * (el.text || '').length * 0.6 : 100);
+        var h = el.height || el.thickness || el.fontSize || 100;
+        if (dir === 'left') el.x = 0;
+        else if (dir === 'right') el.x = Math.max(0, canvasWidth - w);
+        else if (dir === 'centerH') el.x = Math.max(0, Math.round((canvasWidth - w) / 2));
+        else if (dir === 'top') el.y = 0;
+        else if (dir === 'bottom') el.y = Math.max(0, canvasHeight - h);
+        else if (dir === 'centerV') el.y = Math.max(0, Math.round((canvasHeight - h) / 2));
+        saveState(); renderCanvas(); showPropertiesFor(el.id);
+    }
+
+    // -- Keyboard Shortcuts --
+    document.addEventListener('keydown', function(e) {
+        var tag = e.target.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        if (e.ctrlKey && e.key === 'z') { undo(); e.preventDefault(); return; }
+        if (e.ctrlKey && e.key === 'y') { redo(); e.preventDefault(); return; }
+        if (e.ctrlKey && e.key === 's') { saveTemplate(); e.preventDefault(); return; }
+        if (e.ctrlKey && e.key === 'd') { duplicateSelected(); e.preventDefault(); return; }
+        if (e.ctrlKey && e.key === 'a') {
+            selectedElements.clear();
+            elements.forEach(function(el) { selectedElements.add(el.id); });
+            primarySelected = elements.length > 0 ? elements[elements.length - 1].id : null;
+            renderCanvas();
+            if (primarySelected) showPropertiesFor(primarySelected);
+            toast('Selected all'); e.preventDefault(); return;
+        }
+        if (selectedElements.size === 0) return;
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            deleteSelected(); e.preventDefault();
+        } else if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(e.key) >= 0) {
+            var step = e.shiftKey ? 10 : 1;
+            selectedElements.forEach(function(id) {
+                var el = elements.find(function(x) { return x.id === id; });
+                if (!el) return;
+                if (e.key === 'ArrowUp') el.y = Math.max(0, el.y - step);
+                else if (e.key === 'ArrowDown') el.y += step;
+                else if (e.key === 'ArrowLeft') el.x = Math.max(0, el.x - step);
+                else if (e.key === 'ArrowRight') el.x += step;
+                var dom = document.getElementById(id);
+                if (dom) { dom.style.left = el.x + 'px'; dom.style.top = el.y + 'px'; }
+            });
+            if (primarySelected) {
+                var p = elements.find(function(x) { return x.id === primarySelected; });
+                if (p) { document.getElementById('inpX').value = p.x; document.getElementById('inpY').value = p.y; }
+            }
+            updateStatusBar(); e.preventDefault();
+        }
+    });
+
+    // -- Save / Load / Clear --
+    function clearCanvas() {
+        if (elements.length === 0 || confirm('Clear all elements?')) {
+            elements = []; clearSelection(); saveState(); renderCanvas(); toast('Canvas cleared');
+        }
+    }
+    function saveTemplate() {
+        localStorage.setItem('zebraTemplate', JSON.stringify({ canvasWidth: canvasWidth, canvasHeight: canvasHeight, elements: elements }));
+        toast('Template saved');
+    }
+    function loadTemplate() {
+        var data = localStorage.getItem('zebraTemplate');
+        if (!data) { toast('No saved template found'); return; }
+        try {
+            var tpl = JSON.parse(data);
+            elements = tpl.elements || [];
+            if (tpl.canvasWidth && tpl.canvasHeight) {
+                canvasWidth = tpl.canvasWidth; canvasHeight = tpl.canvasHeight;
+                document.getElementById('canvasW').value = canvasWidth;
+                document.getElementById('canvasH').value = canvasHeight;
+                updateCanvasSize();
+            }
+            clearSelection(); saveState(); renderCanvas(); toast('Template loaded');
+        } catch(e) { toast('Error loading template'); }
+    }
+
+    // -- Helper: load image as promise --
+    function loadImageAsync(src) {
+        return new Promise(function(resolve, reject) {
+            var img = new Image();
+            img.onload = function() { resolve(img); };
+            img.onerror = function() { reject(new Error('Image load failed')); };
+            img.src = src;
+        });
+    }
+
+    // -- Render entire label to a bitmap canvas --
+    async function renderLabelToCanvas() {
+        var c = document.createElement('canvas');
+        c.width = canvasWidth;
+        c.height = canvasHeight;
+        var ctx = c.getContext('2d');
+
+        // White background
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, c.width, c.height);
+
+        // Draw elements in order (same z-order as editor)
+        for (var i = 0; i < elements.length; i++) {
+            var el = elements[i];
+            ctx.save();
 
             if (el.type === 'text') {
-                document.getElementById('propText').style.display = 'flex';
-                document.getElementById('inpText').value = el.text;
-                document.getElementById('inpFontSize').value = el.fontSize;
-            } else if (el.type === 'barcode' || el.type === 'qrcode') {
-                document.getElementById('propBarcode').style.display = 'flex';
-                document.getElementById('inpBarcodeData').value = el.data;
-                
-                if (el.type === 'barcode') {
-                    document.getElementById('inpBarcodeHeight').style.display = 'block';
-                    document.getElementById('lblBarcodeHeight').style.display = 'block';
-                    document.getElementById('lblBarcodeHeight').innerText = 'Height';
-                    document.getElementById('inpBarcodeHeight').value = el.height;
-                } else {
-                    document.getElementById('inpBarcodeHeight').style.display = 'block';
-                    document.getElementById('lblBarcodeHeight').style.display = 'block';
-                    document.getElementById('lblBarcodeHeight').innerText = 'Size (1-10)';
-                    document.getElementById('inpBarcodeHeight').value = el.size;
-                }
+                ctx.fillStyle = 'black';
+                ctx.font = 'bold ' + el.fontSize + 'px Arial, sans-serif';
+                ctx.textBaseline = 'top';
+                ctx.fillText(el.text || '', el.x, el.y);
+
             } else if (el.type === 'box') {
-                document.getElementById('propBox').style.display = 'flex';
-                document.getElementById('inpBoxW').value = el.width;
-                document.getElementById('inpBoxH').value = el.height;
-                document.getElementById('inpBoxT').value = el.thickness;
-            } else if (el.type === 'image') {
-                document.getElementById('propImage').style.display = 'flex';
-                document.getElementById('inpImgW').value = el.width;
-                document.getElementById('inpImgH').value = el.height;
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = el.thickness || 2;
+                ctx.strokeRect(el.x, el.y, el.width, el.height);
+
+            } else if (el.type === 'line') {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(el.x, el.y, el.length || 100, el.thickness || 2);
+
+            } else if (el.type === 'barcode') {
+                try {
+                    var bcCanvas = document.createElement('canvas');
+                    JsBarcode(bcCanvas, el.data || '123456789', {
+                        format: 'CODE128', height: el.height || 100,
+                        displayValue: true, margin: 0, width: 2
+                    });
+                    ctx.drawImage(bcCanvas, el.x, el.y);
+                } catch(e) { console.warn('Barcode render error:', e); }
+
+            } else if (el.type === 'qrcode') {
+                try {
+                    var qr = qrcode(0, 'M');
+                    qr.addData(el.data || 'https://example.com');
+                    qr.make();
+                    var qrPixelSize = (el.size || 5) * 20;
+                    var moduleCount = qr.getModuleCount();
+                    var cellSize = qrPixelSize / moduleCount;
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(el.x, el.y, qrPixelSize, qrPixelSize);
+                    ctx.fillStyle = 'black';
+                    for (var row = 0; row < moduleCount; row++) {
+                        for (var col = 0; col < moduleCount; col++) {
+                            if (qr.isDark(row, col)) {
+                                ctx.fillRect(
+                                    el.x + col * cellSize,
+                                    el.y + row * cellSize,
+                                    Math.ceil(cellSize),
+                                    Math.ceil(cellSize)
+                                );
+                            }
+                        }
+                    }
+                } catch(e) { console.warn('QR render error:', e); }
+
+            } else if (el.type === 'image' || el.type === 'vanity_barcode') {
+                if (el.src) {
+                    try {
+                        var img = await loadImageAsync(el.src);
+                        if (el.type === 'image') {
+                            // Apply grayscale + high contrast (matches editor preview)
+                            var tmpC = document.createElement('canvas');
+                            tmpC.width = el.width; tmpC.height = el.height;
+                            var tmpCtx = tmpC.getContext('2d');
+                            tmpCtx.filter = 'grayscale(100%) contrast(200%)';
+                            tmpCtx.drawImage(img, 0, 0, el.width, el.height);
+                            ctx.drawImage(tmpC, el.x, el.y);
+                        } else {
+                            ctx.drawImage(img, el.x, el.y, el.width, el.height);
+                        }
+                    } catch(e) { console.warn('Image draw error:', e); }
+                }
             }
+
+            ctx.restore();
         }
 
-        function updateElement() {
-            if (!selectedElement) return;
-            const el = elements.find(e => e.id === selectedElement);
-            
-            el.x = parseInt(document.getElementById('inpX').value) || 0;
-            el.y = parseInt(document.getElementById('inpY').value) || 0;
+        return c;
+    }
 
-            if (el.type === 'text') {
-                el.text = document.getElementById('inpText').value;
-                el.fontSize = parseInt(document.getElementById('inpFontSize').value) || 20;
-            } else if (el.type === 'barcode' || el.type === 'qrcode') {
-                el.data = document.getElementById('inpBarcodeData').value;
-                if (el.type === 'barcode') {
-                    el.height = parseInt(document.getElementById('inpBarcodeHeight').value) || 50;
-                } else {
-                    el.size = parseInt(document.getElementById('inpBarcodeHeight').value) || 5;
-                }
-            } else if (el.type === 'box') {
-                el.width = parseInt(document.getElementById('inpBoxW').value) || 100;
-                el.height = parseInt(document.getElementById('inpBoxH').value) || 100;
-                el.thickness = parseInt(document.getElementById('inpBoxT').value) || 2;
-            } else if (el.type === 'image') {
-                el.width = parseInt(document.getElementById('inpImgW').value) || 100;
-                el.height = parseInt(document.getElementById('inpImgH').value) || 100;
-            }
+    // -- Rotate a canvas by angle (90, 180, 270) --
+    function rotateCanvasElement(srcCanvas, angle) {
+        var w = srcCanvas.width, h = srcCanvas.height;
+        var rotated = document.createElement('canvas');
 
-            renderCanvas();
+        if (angle === 90) {
+            rotated.width = h; rotated.height = w;
+            var rCtx = rotated.getContext('2d');
+            rCtx.translate(h, 0);
+            rCtx.rotate(Math.PI / 2);
+            rCtx.drawImage(srcCanvas, 0, 0);
+        } else if (angle === 180) {
+            rotated.width = w; rotated.height = h;
+            var rCtx = rotated.getContext('2d');
+            rCtx.translate(w, h);
+            rCtx.rotate(Math.PI);
+            rCtx.drawImage(srcCanvas, 0, 0);
+        } else if (angle === 270) {
+            rotated.width = h; rotated.height = w;
+            var rCtx = rotated.getContext('2d');
+            rCtx.translate(0, w);
+            rCtx.rotate(-Math.PI / 2);
+            rCtx.drawImage(srcCanvas, 0, 0);
+        } else {
+            return srcCanvas; // 0° = no rotation
         }
 
-        async function printLabel() {
-            if (elements.length === 0) {
-                alert("Canvas is empty!");
-                return;
-            }
+        return rotated;
+    }
 
-            const btn = document.querySelector('.btn-primary');
-            const ogText = btn.innerText;
-            btn.innerText = '⏳ PRINTING...';
-            btn.style.opacity = '0.8';
-            btn.style.pointerEvents = 'none';
+    // -- Print --
+    async function printLabel() {
+        if (elements.length === 0) { toast('Canvas is empty!'); return; }
+        var btn = document.getElementById('printBtn');
+        var og = btn.innerHTML;
+        btn.innerHTML = 'PRINTING...'; btn.style.opacity = '0.7'; btn.style.pointerEvents = 'none';
 
-            try {
-                const payload = {
-                    elements: elements,
-                    canvasWidth: canvasWidth,
-                    canvasHeight: canvasHeight
-                };
+        var rotateAngle = parseInt(document.getElementById('rotateAngle').value) || 0;
 
-                const res = await fetch('/print', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
+        try {
+            var res;
+
+            if (rotateAngle === 0) {
+                // No rotation: use native ZPL elements for best quality
+                var printElements = elements.map(function(el) {
+                    if (el.type === 'vanity_barcode') return Object.assign({}, el, { type: 'image' });
+                    if (el.type === 'line') return Object.assign({}, el, { type: 'box', width: el.length, height: el.thickness });
+                    return el;
                 });
-                
-                const data = await res.json();
-                if (data.success) {
-                    btn.innerText = '✅ SUCCESS!';
-                    btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                } else {
-                    alert('Error: ' + data.error);
-                    btn.innerText = '❌ FAILED';
-                    btn.style.background = '#ef4444';
-                }
-            } catch (err) {
-                alert('Connection error. Is the server running?');
-                btn.innerText = '❌ ERROR';
-                btn.style.background = '#ef4444';
+                res = await fetch('/print', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ elements: printElements, canvasWidth: canvasWidth, canvasHeight: canvasHeight, rotate: 0 })
+                });
+            } else {
+                // Rotation: render entire label as bitmap, rotate it, send as image
+                toast('Rendering rotated label...');
+                var labelCanvas = await renderLabelToCanvas();
+                var rotatedCanvas = rotateCanvasElement(labelCanvas, rotateAngle);
+                var bitmapData = rotatedCanvas.toDataURL('image/png');
+                var finalW = rotatedCanvas.width;
+                var finalH = rotatedCanvas.height;
+
+                console.log('Sending rotated bitmap:', finalW + 'x' + finalH, 'angle:', rotateAngle);
+
+                res = await fetch('/print-bitmap', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: bitmapData, width: finalW, height: finalH })
+                });
             }
 
-            setTimeout(() => {
-                btn.innerText = ogText;
-                btn.style.background = '';
-                btn.style.opacity = '1';
-                btn.style.pointerEvents = 'auto';
-            }, 3000);
+            var data = await res.json();
+            if (data.success) {
+                btn.innerHTML = 'SUCCESS!';
+                btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                toast('Label sent to printer!');
+            } else {
+                btn.innerHTML = 'FAILED'; btn.style.background = '#ef4444';
+                toast('Error: ' + data.error);
+            }
+        } catch(err) {
+            console.error('Print error:', err);
+            btn.innerHTML = 'ERROR'; btn.style.background = '#ef4444';
+            toast('Connection error. Is the server running?');
         }
-    </script>
+        setTimeout(function() {
+            btn.innerHTML = og; btn.style.background = '';
+            btn.style.opacity = '1'; btn.style.pointerEvents = 'auto';
+        }, 2500);
+    }
+
+    // -- Rotate Selector --
+    function onRotateChange() {
+        var angle = parseInt(document.getElementById('rotateAngle').value) || 0;
+        localStorage.setItem('zebraRotate', angle.toString());
+        var icon = document.getElementById('rotateIcon');
+        icon.style.transform = 'rotate(' + angle + 'deg)';
+        var selector = document.getElementById('rotateSelector');
+        if (angle > 0) {
+            selector.classList.add('active');
+        } else {
+            selector.classList.remove('active');
+        }
+        toast(angle === 0 ? 'No rotation' : 'Print will rotate ' + angle + '°');
+    }
+    // Restore rotate state
+    (function() {
+        var saved = localStorage.getItem('zebraRotate') || '0';
+        var sel = document.getElementById('rotateAngle');
+        sel.value = saved;
+        var icon = document.getElementById('rotateIcon');
+        icon.style.transform = 'rotate(' + saved + 'deg)';
+        if (parseInt(saved) > 0) {
+            document.getElementById('rotateSelector').classList.add('active');
+        }
+    })();
+
+    // -- Init --
+    renderCanvas();
+</script>
 </body>
 </html>
